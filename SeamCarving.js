@@ -57,8 +57,98 @@ const imageFromData=(grayImage)=>{
 	return{width:grayImage.width,height:grayImage.height,data:data}
 }
 
-const getSeam=(image,seamNum)=>{
+const getSeam=(image)=>{
+	let heat=heatMap(grayscale(image)).data
+	let total=new Float32Array(image.width*image.height)
+	let direction=new Int8Array(image.width*image.height)
+	let min=Infinity
+	let minpos=0
+	for(let i=0;i<image.height;i++){
+		for(let j=0;j<image.width;j++){
+			if(i===0){
+				total[i*image.width+j]=heat[i*image.width+j]
+				direction[i*image.width+j]=0
+			}else{
+				let localmin=total[(i-1)*image.width+j]
+				let localmindire=0
+				if(j!==0){
+					if(total[(i-1)*image.width+j-1]<localmin){
+						localmin=total[(i-1)*image.width+j-1]
+						localmindire=-1
+					}
+				}
+				if(j!==image.width-1){
+					if(total[(i-1)*image.width+j+1]<localmin){
+						localmin=total[(i-1)*image.width+j+1]
+						localmindire=1
+					}
+				}
+				total[i*image.width+j]=localmin+heat[i*image.width+j]
+				direction[i*image.width+j]=localmindire
+				if(i===image.height-1){
+					if(total[i*image.width+j]<min){
+						min=total[i*image.width+j]
+						minpos=j
+					}
+				}
+			}
+		}
+	}
+	let posList=[]
+	for(let i=image.height-1;i>=0;i--){
+		posList.unshift(minpos)
+		minpos+=direction[i*image.width+minpos]
+	}
+	return posList
+}
 
+const getSeams=(image,seamNum,returnImage=false)=>{
+	console.log(Date.now())
+	let processingImage={width:image.width,height:image.height,data:new Uint8ClampedArray(image.data)}
+	let seams=[]
+	for(let i=0;i<seamNum;i++){
+		let seam=getSeam(processingImage)
+		seams.unshift(seam)
+		processingImage.width--
+		let newData=new Uint8ClampedArray(image.height*image.width*4)
+		for(let i=0;i<processingImage.height;i++){
+			for(let j=0;j<processingImage.width;j++){
+				let oldIndex=i*(processingImage.width+1)+j+(j<seam[i]?0:1)
+				let newIndex=i*processingImage.width+j
+				for(let k=0;k<4;k++){
+					newData[4*newIndex+k]=processingImage.data[4*oldIndex+k]
+				}
+			}
+		}
+		processingImage.data=newData
+	}
+	console.log(Date.now())
+	if(returnImage){
+		return processingImage
+	}
+	let currentWidth=image.width-seamNum
+	let flags=new Array(image.height*currentWidth).fill(0)
+	for(let seam of seams){
+		currentWidth++
+		for(let i=0;i<image.height;i++){
+			flags.splice(i*currentWidth+seam[i],0,1)
+		}
+	}
+	console.log(Date.now())
+	return new Int8Array(flags)
+}
+
+const markSeams=(image,seamNum,color)=>{
+	let flags=getSeams(image,seamNum)
+	let data=new Uint8ClampedArray(image.data)
+	for(let i=0;i<image.height*image.width;i++){
+		if(flags[i]===1){
+			for(let j=0;j<4;j++){
+				data[4*i+j]=color[j]
+			}
+		}
+	}
+	return{width:image.width,height:image.height,data:data}
 }
 
 const resize=(image,newWidth,newHeight)=>{
@@ -66,4 +156,4 @@ const resize=(image,newWidth,newHeight)=>{
 	return imageFromData(heatMap(grayscale(image)))
 }
 
-module.exports={resize:resize}
+module.exports={resize:resize,markSeams:markSeams}
