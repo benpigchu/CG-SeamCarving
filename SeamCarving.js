@@ -1,3 +1,5 @@
+const log=require("./log.js").log
+
 const sobelKernel=(lefttop,top,righttop,left,middle,right,leftbottom,bottom,rightbottom)=>{
 	let factor1=righttop+rightbottom+2*right-lefttop-leftbottom-2*left
 	let factor2=righttop+lefttop+2*top-leftbottom-rightbottom-2*bottom
@@ -103,7 +105,6 @@ const getSeam=(image)=>{
 }
 
 const getSeams=(image,seamNum,returnImage=false)=>{
-	console.log(Date.now())
 	let processingImage={width:image.width,height:image.height,data:new Uint8ClampedArray(image.data)}
 	let seams=[]
 	for(let i=0;i<seamNum;i++){
@@ -122,7 +123,6 @@ const getSeams=(image,seamNum,returnImage=false)=>{
 		}
 		processingImage.data=newData
 	}
-	console.log(Date.now())
 	if(returnImage){
 		return processingImage
 	}
@@ -134,8 +134,46 @@ const getSeams=(image,seamNum,returnImage=false)=>{
 			flags.splice(i*currentWidth+seam[i],0,1)
 		}
 	}
-	console.log(Date.now())
 	return new Int8Array(flags)
+}
+
+const changeWidth=(image,newWidth)=>{
+	if(newWidth<image.width){
+		return getSeams(image,image.width-newWidth,true)
+	}
+	while(newWidth>2*image.width){
+		let data=new Uint8ClampedArray(4*image.width*image.height*2)
+		for(let i=0;i<image.height*image.width;i++){
+			for(let j=0;j<4;j++){
+				data[i*8+j]=image.data[i*4+j]
+				data[i*8+4+j]=(image.data[i*4+j]+image.data[i*4+j+((i+1)%image.width===0?0:4)])/2
+			}
+		}
+		image.data=data
+		image.width*=2
+	}
+	if(image.width===newWidth){
+		return image
+	}
+	let seams=getSeams(image,newWidth-image.width)
+	let newPos=0
+	let data=new Uint8ClampedArray(4*image.height*newWidth)
+	for(let i=0;i<image.height*image.width;i++){
+		for(let j=0;j<4;j++){
+			data[4*newPos+j]=image.data[4*i+j]
+		}
+		newPos++
+		if(seams[i]===1){
+			for(let j=0;j<4;j++){
+				data[4*newPos+j]=(image.data[4*i+j]+image.data[4*i+j+((i+1)%image.width===0?0:4)])/2
+			}
+			newPos++
+		}
+	}
+	image.data=data
+	image.width=newWidth
+	return image
+
 }
 
 const markSeams=(image,seamNum,color)=>{
@@ -152,8 +190,7 @@ const markSeams=(image,seamNum,color)=>{
 }
 
 const resize=(image,newWidth,newHeight)=>{
-	console.log(`image: ${image.width}x${image.height}`)
-	return imageFromData(heatMap(grayscale(image)))
+	return transpose(changeWidth(transpose(changeWidth(image,newWidth)),newHeight))
 }
 
 module.exports={resize:resize,markSeams:markSeams}
