@@ -7,6 +7,7 @@ const sobelKernel=(lefttop,top,righttop,left,middle,right,leftbottom,bottom,righ
 }
 
 const transpose=(image)=>{
+	log`Transpose image...`
 	let data=new Uint8ClampedArray(image.data.length)
 	for(let i=0;i<image.height;i++){
 		for(let j=0;j<image.width;j++){
@@ -105,13 +106,14 @@ const getSeam=(image)=>{
 }
 
 const getSeams=(image,seamNum,returnImage=false)=>{
+	log`${returnImage?"Remove":"Select"} ${seamNum} seams from image...`
 	let processingImage={width:image.width,height:image.height,data:new Uint8ClampedArray(image.data)}
 	let seams=[]
 	for(let i=0;i<seamNum;i++){
 		let seam=getSeam(processingImage)
 		seams.unshift(seam)
 		processingImage.width--
-		let newData=new Uint8ClampedArray(image.height*image.width*4)
+		let newData=new Uint8ClampedArray(processingImage.height*processingImage.width*4)
 		for(let i=0;i<processingImage.height;i++){
 			for(let j=0;j<processingImage.width;j++){
 				let oldIndex=i*(processingImage.width+1)+j+(j<seam[i]?0:1)
@@ -126,6 +128,7 @@ const getSeams=(image,seamNum,returnImage=false)=>{
 	if(returnImage){
 		return processingImage
 	}
+	log`Generating flags...`
 	let currentWidth=image.width-seamNum
 	let flags=new Array(image.height*currentWidth).fill(0)
 	for(let seam of seams){
@@ -138,10 +141,12 @@ const getSeams=(image,seamNum,returnImage=false)=>{
 }
 
 const changeWidth=(image,newWidth)=>{
+	log`Change width from ${image.width} to ${newWidth}`
 	if(newWidth<image.width){
 		return getSeams(image,image.width-newWidth,true)
 	}
 	while(newWidth>2*image.width){
+		log`Double the width to ${2*image.width}...`
 		let data=new Uint8ClampedArray(4*image.width*image.height*2)
 		for(let i=0;i<image.height*image.width;i++){
 			for(let j=0;j<4;j++){
@@ -156,6 +161,7 @@ const changeWidth=(image,newWidth)=>{
 		return image
 	}
 	let seams=getSeams(image,newWidth-image.width)
+	log`Apply seams...`
 	let newPos=0
 	let data=new Uint8ClampedArray(4*image.height*newWidth)
 	for(let i=0;i<image.height*image.width;i++){
@@ -177,7 +183,9 @@ const changeWidth=(image,newWidth)=>{
 }
 
 const markSeams=(image,seamNum,color)=>{
+	log`Mark ${seamNum} seam(s) on image ${image.width}x${image.height}`
 	let flags=getSeams(image,seamNum)
+	log`Paint...`
 	let data=new Uint8ClampedArray(image.data)
 	for(let i=0;i<image.height*image.width;i++){
 		if(flags[i]===1){
@@ -190,7 +198,10 @@ const markSeams=(image,seamNum,color)=>{
 }
 
 const resize=(image,newWidth,newHeight)=>{
-	return transpose(changeWidth(transpose(changeWidth(image,newWidth)),newHeight))
+	log`Resize image ${image.width}x${image.height} to ${newWidth}x${newHeight}`
+	let newImage=transpose(changeWidth(transpose(changeWidth(image,newWidth)),newHeight))
+	log`Finished`
+	return newImage
 }
 
 module.exports={resize:resize,markSeams:markSeams}

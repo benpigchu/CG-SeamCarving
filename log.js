@@ -14,10 +14,18 @@ const log=(strings,...keys)=>{
 	if(!config.verbose){
 		return
 	}
-	let str=strings.unshift()
+	let strs=Array.from(strings)
+	const getStr=()=>{
+		let str=strs.shift()
+		if(str===undefined){
+			throw new Error("Invalid string")
+		}
+		return str
+	}
+	let str=getStr()
 	for(let key of keys){
 		str+=key
-		str+=strings.unshift()
+		str+=getStr()
 	}
 	config.logger(str)
 }
