@@ -6,6 +6,16 @@ const sobelKernel=(lefttop,top,righttop,left,middle,right,leftbottom,bottom,righ
 	return Math.hypot(factor1,factor2)
 }
 
+const laplaceKernel=(lefttop,top,righttop,left,middle,right,leftbottom,bottom,rightbottom)=>{
+	return Math.abs(lefttop+righttop+leftbottom+rightbottom+2*(left+right+top+bottom)-12*middle)
+}
+
+let kernel=sobelKernel
+
+const setKernel=(newKernel)=>{
+	kernel=newKernel
+}
+
 const transpose=(image)=>{
 	log`Transpose image...`
 	let data=new Uint8ClampedArray(image.data.length)
@@ -27,7 +37,7 @@ const grayscale=(image)=>{
 	return{width:image.width,height:image.height,data:data}
 }
 
-const heatMap=(grayImage,kernel)=>{
+const heatMap=(grayImage)=>{
 	let data=new Float32Array(grayImage.width*grayImage.height)
 	for(let i=0;i<grayImage.height;i++){
 		for(let j=0;j<grayImage.width;j++){
@@ -35,7 +45,7 @@ const heatMap=(grayImage,kernel)=>{
 			let right=(j===grayImage.width-1)?j:j+1
 			let top=(i===0)?i:i-1
 			let bottom=(i===grayImage.height-1)?i:i+1
-			data[i*grayImage.width+j]=sobelKernel(grayImage.data[top*grayImage.width+left],
+			data[i*grayImage.width+j]=kernel(grayImage.data[top*grayImage.width+left],
 												grayImage.data[top*grayImage.width+j],
 												grayImage.data[top*grayImage.width+right],
 												grayImage.data[i*grayImage.width+left],
@@ -204,4 +214,4 @@ const resize=(image,newWidth,newHeight)=>{
 	return newImage
 }
 
-module.exports={resize:resize,markSeams:markSeams}
+module.exports={resize:resize,markSeams:markSeams,setKernel:setKernel,kernels:{sobelKernel:sobelKernel,laplaceKernel:laplaceKernel}}
